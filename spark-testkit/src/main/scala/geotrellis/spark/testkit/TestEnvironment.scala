@@ -77,9 +77,7 @@ trait TestEnvironment extends BeforeAndAfterAll
     conf
   }
 
-  lazy val sc = SparkContext.getOrCreate(sparkConf)
-
-  implicit def sc: SparkContext = TestEnvironment.sc
+  implicit lazy val sc: SparkContext = SparkContext.getOrCreate(sparkConf)
 
   // get the name of the class which mixes in this trait
   val name = this.getClass.getName
