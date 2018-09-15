@@ -41,20 +41,6 @@ object TestEnvironment {
     val localFS = getLocalFS(conf)
     new Path(localFS.getWorkingDirectory, "spark/src/test/resources/")
   }
-
-  def sparkMaster = "local[8]"
-
-  val conf = new SparkConf()
-      .setMaster(sparkMaster)
-      .setAppName("Test Context")
-      .set("spark.ui.enabled", "false")
-      .set("spark.default.parallelism","8")
-      .set("spark.serializer", classOf[KryoSerializer].getName)
-      .set("spark.kryo.registrator", classOf[KryoRegistrator].getName)
-      .set("spark.kryo.registrationRequired", "false")
-      .set("spark.kryoserializer.buffer.max", "500m")
-
-  lazy val sc = SparkContext.getOrCreate(TestEnvironment.conf)
 }
 
 /*
@@ -68,12 +54,30 @@ trait TestEnvironment extends BeforeAndAfterAll
 { self: Suite with BeforeAndAfterAll =>
 
   /** Subclasses can override this to change the Spark master specification */
-  def sparkMaster = TestEnvironment.sparkMaster
+  def sparkMaster = "local[8]"
 
   private lazy val afterAlls = mutable.ListBuffer[() => Unit]()
 
   def registerAfterAll(f: () => Unit): Unit =
     afterAlls += f
+
+  def setKryoRegistrator(conf: SparkConf): Unit =
+    conf.set("spark.kryo.registrator", classOf[KryoRegistrator].getName)
+  
+  val sparkConf = {
+    val conf = new SparkConf()
+      .setMaster(sparkMaster)
+      .setAppName("Test Context")
+      .set("spark.ui.enabled", "false")
+      .set("spark.default.parallelism","8")
+      .set("spark.serializer", classOf[KryoSerializer].getName)
+      .set("spark.kryo.registrationRequired", "false")
+      .set("spark.kryoserializer.buffer.max", "500m")
+    setKryoRegistrator(conf)
+    conf
+  }
+
+  lazy val sc = SparkContext.getOrCreate(sparkConf)
 
   implicit def sc: SparkContext = TestEnvironment.sc
 
