@@ -95,9 +95,10 @@ lazy val commonSettings = Seq(
           .map(year => newText.replace("2018", year))
           .getOrElse(newText)
       } } )),
-  scapegoatVersion in ThisBuild := "1.3.3",
-  updateOptions := updateOptions.value.withGigahorse(false)
+  updateOptions := updateOptions.value.withGigahorse(false),
 )
+
+
 
 lazy val root = Project("geotrellis", file(".")).
   aggregate(
