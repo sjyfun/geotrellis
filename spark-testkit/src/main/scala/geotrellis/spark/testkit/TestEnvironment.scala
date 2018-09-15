@@ -41,6 +41,20 @@ object TestEnvironment {
     val localFS = getLocalFS(conf)
     new Path(localFS.getWorkingDirectory, "spark/src/test/resources/")
   }
+
+  def sparkMaster = "local[8]"
+
+  val conf = new SparkConf()
+      .setMaster(sparkMaster)
+      .setAppName("Test Context")
+      .set("spark.ui.enabled", "false")
+      .set("spark.default.parallelism","8")
+      .set("spark.serializer", classOf[KryoSerializer].getName)
+      .set("spark.kryo.registrator", classOf[KryoRegistrator].getName)
+      .set("spark.kryo.registrationRequired", "false")
+      .set("spark.kryoserializer.buffer.max", "500m")
+
+  lazy val sc = SparkContext.getOrCreate(TestEnvironment.conf)
 }
 
 /*
@@ -54,46 +68,14 @@ trait TestEnvironment extends BeforeAndAfterAll
 { self: Suite with BeforeAndAfterAll =>
 
   /** Subclasses can override this to change the Spark master specification */
-  def sparkMaster = "local"
+  def sparkMaster = TestEnvironment.sparkMaster
 
   private lazy val afterAlls = mutable.ListBuffer[() => Unit]()
+
   def registerAfterAll(f: () => Unit): Unit =
     afterAlls += f
 
-  def setKryoRegistrator(conf: SparkConf): Unit =
-    conf.set("spark.kryo.registrator", classOf[KryoRegistrator].getName)
-
-  lazy val _sc: SparkContext = {
-    System.setProperty("spark.driver.port", "0")
-    System.setProperty("spark.hostPort", "0")
-    System.setProperty("spark.ui.enabled", "false")
-
-    val conf = new SparkConf()
-    conf
-      .setMaster(sparkMaster)
-      .setAppName("Test Context")
-      .set("spark.default.parallelism", "4")
-
-    // Shortcut out of using Kryo serialization if we want to test against
-    // java serialization.
-    if(Properties.envOrNone("GEOTRELLIS_USE_JAVA_SER").isEmpty) {
-      conf
-        .set("spark.serializer", classOf[KryoSerializer].getName)
-        .set("spark.kryoserializer.buffer.max", "500m")
-        .set("spark.kryo.registrationRequired", "false")
-      setKryoRegistrator(conf)
-    }
-
-    val sparkContext = new SparkContext(conf)
-
-    System.clearProperty("spark.driver.port")
-    System.clearProperty("spark.hostPort")
-    System.clearProperty("spark.ui.enabled")
-
-    sparkContext
-  }
-
-  implicit def sc: SparkContext = _sc
+  implicit def sc: SparkContext = TestEnvironment.sc
 
   // get the name of the class which mixes in this trait
   val name = this.getClass.getName
@@ -148,7 +130,6 @@ trait TestEnvironment extends BeforeAndAfterAll
   // note that this afterAll is not inherited from BeforeAndAfterAll, its callers are
   override def afterAll() = {
     FileUtil.fullyDelete(new File(outputLocal.toUri))
-    sc.stop()
     if(afterAlls != null) {
       for(f <- afterAlls) { f() }
     }
