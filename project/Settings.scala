@@ -454,13 +454,13 @@ object Settings {
       val shadePackage = "com.azavea.shaded.demo"
       Seq(
         ShadeRule.rename("com.google.common.**" -> s"$shadePackage.google.common.@1")
-          .inLibrary("com.azavea.geotrellis" %% "geotrellis-cassandra" % Version.geotrellis).inAll,
+          .inLibrary("com.azavea.geotrellis" %% "geotrellis-cassandra" % version.value).inAll,
         ShadeRule.rename("io.netty.**" -> s"$shadePackage.io.netty.@1")
-          .inLibrary("com.azavea.geotrellis" %% "geotrellis-hbase" % Version.geotrellis).inAll,
+          .inLibrary("com.azavea.geotrellis" %% "geotrellis-hbase" % version.value).inAll,
         ShadeRule.rename("com.fasterxml.jackson.**" -> s"$shadePackage.com.fasterxml.jackson.@1")
           .inLibrary(jsonSchemaValidator).inAll,
         ShadeRule.rename("org.apache.avro.**" -> s"$shadePackage.org.apache.avro.@1")
-          .inLibrary("com.azavea.geotrellis" %% "geotrellis-spark" % Version.geotrellis).inAll,
+          .inLibrary("com.azavea.geotrellis" %% "geotrellis-spark" % version.value).inAll,
         ShadeRule.rename("shapeless.**" -> s"$shadePackage.shapeless.@1").inAll
       )
     },
@@ -489,13 +489,13 @@ object Settings {
       val shadePackage = "com.azavea.shaded.demo"
       Seq(
         ShadeRule.rename("com.google.common.**" -> s"$shadePackage.google.common.@1")
-          .inLibrary("com.azavea.geotrellis" %% "geotrellis-cassandra" % Version.geotrellis).inAll,
+          .inLibrary("com.azavea.geotrellis" %% "geotrellis-cassandra" % version.value).inAll,
         ShadeRule.rename("io.netty.**" -> s"$shadePackage.io.netty.@1")
-          .inLibrary("com.azavea.geotrellis" %% "geotrellis-hbase" % Version.geotrellis).inAll,
+          .inLibrary("com.azavea.geotrellis" %% "geotrellis-hbase" % version.value).inAll,
         ShadeRule.rename("com.fasterxml.jackson.**" -> s"$shadePackage.com.fasterxml.jackson.@1")
           .inLibrary(jsonSchemaValidator).inAll,
         ShadeRule.rename("org.apache.avro.**" -> s"$shadePackage.org.apache.avro.@1")
-          .inLibrary("com.azavea.geotrellis" %% "geotrellis-spark" % Version.geotrellis).inAll,
+          .inLibrary("com.azavea.geotrellis" %% "geotrellis-spark" % version.value).inAll,
         ShadeRule.rename("shapeless.**" -> s"$shadePackage.shapeless.@1").inAll
       )
     },

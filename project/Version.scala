@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
+import scala.util.Properties
+
 object Version {
-  val geotrellis  = "3.0.0" + Environment.versionSuffix
   val scala       = "2.11.12"
   val crossScala  = Seq(scala, "2.12.7")
   val geotools    = "20.0"
@@ -29,6 +30,6 @@ object Version {
   val geowave     = "0.9.3"
   val circe       = "0.10.0"
   val previousVersion = "1.1.0"
-  lazy val hadoop = Environment.hadoopVersion
-  lazy val spark  = Environment.sparkVersion
+  lazy val hadoop = Properties.envOrElse("SPARK_HADOOP_VERSION", "2.8.3")
+  lazy val spark  = Properties.envOrElse("SPARK_VERSION", "2.4.0")
 }

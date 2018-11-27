@@ -7,7 +7,6 @@ scalaVersion := Version.scala
 scalaVersion in ThisBuild := Version.scala
 
 lazy val commonSettings = Seq(
-  version := Version.geotrellis,
   scalaVersion := Version.scala,
   crossScalaVersions := Version.crossScala,
   description := Info.description,
@@ -42,7 +41,7 @@ lazy val commonSettings = Seq(
       Some("LocationTech Snapshot Repository" at s"${locationtech}/geotrellis-snapshots")
     } else {
       val milestoneRx = """-(M|RC)\d+$""".r
-      milestoneRx.findFirstIn(Version.geotrellis) match {
+      milestoneRx.findFirstIn(version.value) match {
         case Some(v) =>
           // Public milestones to LocationTech
           Some("LocationTech Release Repository" at s"${locationtech}/geotrellis-releases")
@@ -287,10 +286,12 @@ lazy val util = project
 
 lazy val `doc-examples` = project
   .dependsOn(spark, s3, accumulo, cassandra, hbase, spark, `spark-testkit`, `spark-pipeline`)
+  .settings(publish / skip := true)
   .settings(commonSettings)
   .settings(Settings.`doc-examples`)
 
 lazy val bench = project
   .dependsOn(spark)
+  .settings(publish / skip := true)
   .settings(commonSettings)
   .settings(Settings.bench)
