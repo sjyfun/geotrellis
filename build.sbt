@@ -82,14 +82,10 @@ lazy val commonSettings = Seq(
 
 def publishToSonatype = Command.command("publishToSonatype") { state =>
   val extracted = Project.extract(state)
-  val sonatype = "https://oss.sonatype.org/"
-  val repo = Some("Sonatype Release" at s"${sonatype}service/local/staging/deploy/maven2")
+  val repo = Some("Sonatype Release" at s"https://oss.sonatype.org/service/local/staging/deploy/maven2")
 
-  Project.runTask(
-    PgpKeys.publishSigned in Compile,
-    extracted.appendWithSession(List(publishTo := repo), state),
-    true)
-
+  val thisRef = extracted.get(thisProjectRef)
+  extracted.runAggregated(PgpKeys.publishSigned in Compile in thisRef, extracted.appendWithSession(List(publishTo := repo), state))
   state
 }
 
@@ -97,16 +93,11 @@ def publishToLocationtech = Command.command("publishToLocationtech") { state =>
   val extracted = Project.extract(state)
   val locationtech = "https://repo.locationtech.org/content/repositories"
   val repo =
-    if (extracted.get(isSnapshot).booleanValue())
-      Some("LocationTech Snapshot" at s"${locationtech}/geotrellis-snapshots")
-    else
-      Some("LocationTech Release" at s"${locationtech}/geotrellis-releases")
+    if (extracted.get(isSnapshot).booleanValue()) Some("LocationTech Snapshot" at s"${locationtech}/geotrellis-snapshots")
+    else Some("LocationTech Release" at s"${locationtech}/geotrellis-releases")
 
-  Project.runTask(
-    publish in Compile,
-    extracted.appendWithSession(List(publishTo := repo), state),
-    true)
-
+  val thisRef = extracted.get(thisProjectRef)
+  extracted.runAggregated(publish in Compile in thisRef, extracted.appendWithSession(List(publishTo := repo), state))
   state
 }
 
