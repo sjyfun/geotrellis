@@ -33,26 +33,7 @@ lazy val commonSettings = Seq(
   publishMavenStyle := true,
   publishArtifact in Test := false,
   pomIncludeRepository := { _ => false },
-
-  publishTo := {
-    val sonatype = "https://oss.sonatype.org/"
-    val locationtech = "https://repo.locationtech.org/content/repositories"
-    if (isSnapshot.value) {
-      // Publish snapshots to LocationTech
-      Some("LocationTech Snapshot Repository" at s"${locationtech}/geotrellis-snapshots")
-    } else {
-      val milestoneRx = """-(M|RC)\d+$""".r
-      milestoneRx.findFirstIn(Version.geotrellis) match {
-        case Some(v) =>
-          // Public milestones to LocationTech
-          Some("LocationTech Release Repository" at s"${locationtech}/geotrellis-releases")
-        case None =>
-          // Publish releases to Sonatype
-          Some("Sonatype Release Repository" at s"${sonatype}service/local/staging/deploy/maven2")
-      }
-    }
-  },
-
+  commands ++= List(publishToSonatype, publishToLocationtech),
   credentials ++= List(Path.userHome / ".ivy2" / ".credentials")
     .filter(_.asFile.canRead)
     .map(Credentials(_)),
@@ -98,6 +79,36 @@ lazy val commonSettings = Seq(
   scapegoatVersion in ThisBuild := "1.3.3",
   updateOptions := updateOptions.value.withGigahorse(false)
 )
+
+def publishToSonatype = Command.command("publishToSonatype") { state =>
+  val extracted = Project.extract(state)
+  val sonatype = "https://oss.sonatype.org/"
+  val repo = Some("Sonatype Release" at s"${sonatype}service/local/staging/deploy/maven2")
+
+  Project.runTask(
+    PgpKeys.publishSigned in Compile,
+    extracted.appendWithSession(List(publishTo := repo), state),
+    true)
+
+  state
+}
+
+def publishToLocationtech = Command.command("publishToLocationtech") { state =>
+  val extracted = Project.extract(state)
+  val locationtech = "https://repo.locationtech.org/content/repositories"
+  val repo =
+    if (extracted.get(isSnapshot).booleanValue())
+      Some("LocationTech Snapshot" at s"${locationtech}/geotrellis-snapshots")
+    else
+      Some("LocationTech Release" at s"${locationtech}/geotrellis-releases")
+
+  Project.runTask(
+    publish in Compile,
+    extracted.appendWithSession(List(publishTo := repo), state),
+    true)
+
+  state
+}
 
 lazy val root = Project("geotrellis", file(".")).
   aggregate(
@@ -287,10 +298,12 @@ lazy val util = project
 
 lazy val `doc-examples` = project
   .dependsOn(spark, s3, accumulo, cassandra, hbase, spark, `spark-testkit`, `spark-pipeline`)
+  .settings(skip in publish := true)
   .settings(commonSettings)
   .settings(Settings.`doc-examples`)
 
 lazy val bench = project
   .dependsOn(spark)
+  .settings(skip in publish := true)
   .settings(commonSettings)
   .settings(Settings.bench)
