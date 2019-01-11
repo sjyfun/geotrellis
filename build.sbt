@@ -33,7 +33,25 @@ lazy val commonSettings = Seq(
   publishMavenStyle := true,
   publishArtifact in Test := false,
   pomIncludeRepository := { _ => false },
-  commands ++= List(publishToSonatype, publishToLocationtech),
+  publishTo := {
+    val locationtech = "https://repo.locationtech.org/content/repositories"
+    val sonatype = "https://oss.sonatype.org/"
+
+    System.getProperty("release") match {
+      case "locationtech" if isSnapshot.value =>
+        Some("LocationTech Snapshot" at s"${locationtech}/geotrellis-snapshots")
+
+      case "locationtech" =>
+        Some("LocationTech Release" at s"${locationtech}/geotrellis-releases")
+
+      case "sonatype" =>
+        Some("Sonatype Release" at s"${sonatype}service/local/staging/deploy/maven2")
+
+      case str =>
+        println(s"Releaes To: $str")
+        None
+    }
+  },
   credentials ++= List(Path.userHome / ".ivy2" / ".credentials")
     .filter(_.asFile.canRead)
     .map(Credentials(_)),
@@ -79,36 +97,6 @@ lazy val commonSettings = Seq(
   scapegoatVersion in ThisBuild := "1.3.3",
   updateOptions := updateOptions.value.withGigahorse(false)
 )
-
-def publishToSonatype = Command.command("publishToSonatype") { state =>
-  val extracted = Project.extract(state)
-  val sonatype = "https://oss.sonatype.org/"
-  val repo = Some("Sonatype Release" at s"${sonatype}service/local/staging/deploy/maven2")
-
-  Project.runTask(
-    PgpKeys.publishSigned in Compile,
-    extracted.appendWithSession(List(publishTo := repo), state),
-    true)
-
-  state
-}
-
-def publishToLocationtech = Command.command("publishToLocationtech") { state =>
-  val extracted = Project.extract(state)
-  val locationtech = "https://repo.locationtech.org/content/repositories"
-  val repo =
-    if (extracted.get(isSnapshot).booleanValue())
-      Some("LocationTech Snapshot" at s"${locationtech}/geotrellis-snapshots")
-    else
-      Some("LocationTech Release" at s"${locationtech}/geotrellis-releases")
-
-  Project.runTask(
-    publish in Compile,
-    extracted.appendWithSession(List(publishTo := repo), state),
-    true)
-
-  state
-}
 
 lazy val root = Project("geotrellis", file(".")).
   aggregate(
