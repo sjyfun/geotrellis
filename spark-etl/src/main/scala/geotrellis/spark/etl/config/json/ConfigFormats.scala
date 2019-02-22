@@ -128,10 +128,35 @@ trait ConfigFormats {
       }
   }
 
+  implicit val cassandraIndexStrategyFormat = new JsonFormat[CassandraIndexStrategy]{
+    override def write(obj: CassandraIndexStrategy): JsValue = {
+      obj match {
+        case WriteOptimized => JsString("writeoptimized")
+        case ReadOptimized => JsString("readoptimized")
+      }
+    }
+
+    override def read(json: JsValue): CassandraIndexStrategy = {
+      json match {
+        case JsString(s) =>
+          s match {
+            case "readoptimized" => ReadOptimized
+            case "writeoptimized" => WriteOptimized
+            case x =>
+              throw new DeserializationException("Unrecognized Cassandra Index Strategy: "+x)
+          }
+        case x =>
+          throw new DeserializationException(
+            "Cassandra Index Strategy should have been of type JsString, but was: "+x.getClass.getSimpleName
+          )
+      }
+    }
+  }
+
   implicit val cassandraCollectionConfigFormat = jsonFormat1(CassandraCollectionConfig)
   implicit val cassandraRDDConfigFormat        = jsonFormat2(CassandraRDDConfig)
   implicit val cassandraThreadsConfigFormat    = jsonFormat2(CassandraThreadsConfig)
-  implicit val cassandraConfigFormat           = jsonFormat9(CassandraConfig.apply)
+  implicit val cassandraConfigFormat           = jsonFormat11(CassandraConfig.apply)
 
   implicit val accumuloProfileFormat  = jsonFormat7(AccumuloProfile)
   implicit val hbaseProfileFormat     = jsonFormat3(HBaseProfile)

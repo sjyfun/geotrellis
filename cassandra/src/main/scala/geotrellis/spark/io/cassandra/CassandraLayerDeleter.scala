@@ -16,36 +16,52 @@
 
 package geotrellis.spark.io.cassandra
 
-import geotrellis.spark.LayerId
-import geotrellis.spark.io._
+import java.math.BigInteger
 
+import com.datastax.driver.core.{BoundStatement, PreparedStatement}
+import geotrellis.spark.{Boundable, LayerId}
+import geotrellis.spark.io._
 import com.typesafe.scalalogging.LazyLogging
 import com.datastax.driver.core.querybuilder.QueryBuilder
 import com.datastax.driver.core.querybuilder.QueryBuilder.{eq => eqs}
+import geotrellis.spark.io.avro.AvroRecordCodec
+import spire.math.Interval
+import spire.implicits._
+import spray.json.JsonFormat
 
 import scala.collection.JavaConverters._
+import scala.collection.immutable.VectorBuilder
+import scala.reflect.ClassTag
 
 class CassandraLayerDeleter(val attributeStore: AttributeStore, instance: CassandraInstance) extends LazyLogging with LayerDeleter[LayerId] {
 
-  def delete(id: LayerId): Unit = {
+  def delete[K: ClassTag](id: LayerId): Unit = {
     try {
       val header = attributeStore.readHeader[CassandraLayerHeader](id)
+      val keyIndex = attributeStore.readKeyIndex[K](id)
+      val indexStrategy = new CassandraIndexing[K](keyIndex, instance.cassandraConfig.tilesPerPartition)
+
+      val squery = QueryBuilder.select("key")
+        .from(header.keyspace, header.tileTable).allowFiltering()
+        .where(eqs("name", id.name))
+        .and(eqs("zoom", id.zoom))
+
+      val dquery = indexStrategy.deleteStatement(
+        instance.cassandraConfig.indexStrategy,
+        header.keyspace, header.tileTable, id.name, id.zoom
+      )
+
       instance.withSessionDo { session =>
-        val squery = QueryBuilder.select("key")
-          .from(header.keyspace, header.tileTable).allowFiltering()
-          .where(eqs("name", id.name))
-          .and(eqs("zoom", id.zoom))
+        val statement = indexStrategy.prepareQuery(dquery)(session)
 
-        val dquery = QueryBuilder.delete()
-          .from(header.keyspace, header.tileTable)
-          .where(eqs("key", QueryBuilder.bindMarker()))
-          .and(eqs("name", id.name))
-          .and(eqs("zoom", id.zoom))
-
-        val statement = session.prepare(dquery)
-
-        session.execute(squery).all().asScala.map { entry =>
-          session.execute(statement.bind(entry.getVarint("key")))
+        //NOTE: use `iterator()` when possible as opposed to `all()` since the latter forces
+        //      materialization of the entirety of the query results into on-heap memory.
+        session.execute(squery).iterator().asScala.map { entry =>
+          session.execute(indexStrategy.bindQuery(
+            instance.cassandraConfig.indexStrategy,
+            statement,
+            entry.getVarint("key")
+          ))
         }
       }
     } catch {

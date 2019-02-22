@@ -16,14 +16,16 @@
 
 package geotrellis.spark
 
+import com.typesafe.scalalogging.LazyLogging
 import geotrellis.spark.io.cassandra.BaseCassandraInstance
 import geotrellis.spark.io.kryo.KryoRegistrator
 import geotrellis.spark.testkit.TestEnvironment
-
 import org.apache.spark.SparkConf
 import org.scalatest._
 
-trait CassandraTestEnvironment extends TestEnvironment { self: Suite =>
+trait CassandraTestEnvironment extends TestEnvironment with LazyLogging { self: Suite =>
+  override def sparkMaster = s"local[${Math.max((Runtime.getRuntime.availableProcessors() / 2) - 1, 1)}]"
+
   override def setKryoRegistrator(conf: SparkConf) =
     conf.set("spark.kryo.registrator", classOf[KryoRegistrator].getName)
         .set("spark.kryo.registrationRequired", "false")

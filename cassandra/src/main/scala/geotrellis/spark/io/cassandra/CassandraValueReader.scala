@@ -22,15 +22,19 @@ import geotrellis.spark.{LayerId, SpatialComponent}
 import geotrellis.spark.io._
 import geotrellis.spark.io.avro.codecs.KeyValueRecordCodec
 import geotrellis.spark.io.avro.{AvroEncoder, AvroRecordCodec}
-
 import com.datastax.driver.core.querybuilder.QueryBuilder
 import com.datastax.driver.core.querybuilder.QueryBuilder.{eq => eqs}
 import spray.json._
 
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
-
 import java.math.BigInteger
+
+import com.datastax.driver.core.{BoundStatement, PreparedStatement}
+import spire.math.Interval
+import spire.implicits._
+
+import scala.collection.immutable.VectorBuilder
 
 class CassandraValueReader(
   instance: CassandraInstance,
@@ -43,18 +47,27 @@ class CassandraValueReader(
     val writerSchema = attributeStore.readSchema(layerId)
     val codec = KeyValueRecordCodec[K, V]
 
-    private lazy val statement = instance.withSession{ session =>
-      session.prepare(
-        QueryBuilder.select("value")
-          .from(header.keyspace, header.tileTable)
-          .where(eqs("key", QueryBuilder.bindMarker()))
-          .and(eqs("name", layerId.name))
-          .and(eqs("zoom", layerId.zoom))
-      )
+    val indexStrategy = new CassandraIndexing[K](keyIndex, instance.cassandraConfig.tilesPerPartition)
+
+    lazy val query = indexStrategy.queryValueStatement(
+      instance.cassandraConfig.indexStrategy,
+      header.keyspace, header.tileTable,
+      layerId.name, layerId.zoom
+    )
+
+    lazy val statement = instance.withSession{ session =>
+      indexStrategy.prepareQuery(query)(session)
     }
 
     def read(key: K): V = instance.withSession { session =>
-      val row = session.execute(statement.bind(keyIndex.toIndex(key): BigInteger)).all()
+      val bound = indexStrategy.bindQuery(
+        instance.cassandraConfig.indexStrategy,
+        statement,
+        keyIndex.toIndex(key): BigInteger
+      )
+
+      val row = session.execute(bound).all()
+
       val tiles = row.asScala.map { entry =>
           AvroEncoder.fromBinary(writerSchema, entry.getBytes("value").array())(codec)
         }

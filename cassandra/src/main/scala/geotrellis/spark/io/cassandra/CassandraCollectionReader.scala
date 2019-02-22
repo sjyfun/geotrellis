@@ -21,16 +21,12 @@ import geotrellis.spark.io._
 import geotrellis.spark.io.avro.codecs.KeyValueRecordCodec
 import geotrellis.spark.io.avro.{AvroEncoder, AvroRecordCodec}
 import geotrellis.spark.io.cassandra.conf.CassandraConfig
-import geotrellis.spark.io.index.MergeQueue
+import geotrellis.spark.io.index.{KeyIndex, MergeQueue}
 import geotrellis.spark.util.KryoWrapper
-
 import org.apache.avro.Schema
-import com.datastax.driver.core.querybuilder.QueryBuilder
-import com.datastax.driver.core.querybuilder.QueryBuilder.{eq => eqs}
 
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
-
 import java.math.BigInteger
 
 object CassandraCollectionReader {
@@ -45,9 +41,12 @@ object CassandraCollectionReader {
     decomposeBounds: KeyBounds[K] => Seq[(BigInt, BigInt)],
     filterIndexOnly: Boolean,
     writerSchema: Option[Schema] = None,
+    keyIndex: KeyIndex[K],
     threads: Int = defaultThreadCount
   ): Seq[(K, V)] = {
     if (queryKeyBounds.isEmpty) return Seq.empty[(K, V)]
+
+    val indexStrategy = new CassandraIndexing[K](keyIndex, instance.cassandraConfig.tilesPerPartition)
 
     val includeKey = (key: K) => queryKeyBounds.includeKey(key)
     val _recordCodec = KeyValueRecordCodec[K, V]
@@ -58,18 +57,20 @@ object CassandraCollectionReader {
     else
       queryKeyBounds.flatMap(decomposeBounds)
 
-    val query = QueryBuilder.select("value")
-      .from(keyspace, table)
-      .where(eqs("key", QueryBuilder.bindMarker()))
-      .and(eqs("name", layerId.name))
-      .and(eqs("zoom", layerId.zoom))
-      .toString
+    val query = indexStrategy.queryValueStatement(
+      instance.cassandraConfig.indexStrategy,
+      keyspace, table, layerId.name, layerId.zoom
+    )
 
     instance.withSessionDo { session =>
-      val statement = session.prepare(query)
+      val statement = indexStrategy.prepareQuery(query)(session)
 
       LayerReader.njoin[K, V](ranges.toIterator, threads){ index: BigInt =>
-        val row = session.execute(statement.bind(index: BigInteger))
+        val row = session.execute(indexStrategy.bindQuery(
+          instance.cassandraConfig.indexStrategy,
+          statement, index: BigInteger
+        ))
+
         if (row.asScala.nonEmpty) {
           val bytes = row.one().getBytes("value").array()
           val recs = AvroEncoder.fromBinary(kwWriterSchema.value.getOrElse(_recordCodec.schema), bytes)(_recordCodec)
