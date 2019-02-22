@@ -12,6 +12,7 @@ Issues related to this research
 
 * `Original issue <https://github.com/locationtech/geotrellis/issues/2831>`__
 * `The actual PR <https://github.com/locationtech/geotrellis/pull/2855>`__
+* `The historical branch with all changes related to this research <https://github.com/locationtech/geotrellis/tree/rnd/cassandra-indexing>`__
 
 Idea
 ====
