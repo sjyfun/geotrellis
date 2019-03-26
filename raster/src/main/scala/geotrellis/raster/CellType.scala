@@ -532,4 +532,44 @@ object CellType {
 
   /** Enumeration of all pre-defined cell types. */
   val celltypes: Seq[DataType with NoDataHandling with Product] = noNoDataCellTypes ++ constantNoDataCellTypes
+
+  def leastUpperBound(cts: List[CellType]): CellType = {
+    val maxBytes = cts.map(_.bytes)
+    val hasFloating =
+      cts.foldLeft(false) { case (acc, ct) => acc || ct.isFloatingPoint }
+
+    lazy val containsUByte =
+      cts.find({
+        _ match {
+          case ct: UByteCells => true
+          case _ => false
+        }
+      }).isDefined
+
+    lazy val containsUShort =
+      cts.find({
+        _ match {
+          case ct: UShortCells => true
+          case _ => false
+        }
+      }).isDefined
+
+
+    if (hasFloating) {
+      if (maxBytes == 32) FloatConstantNoDataCellType
+      else DoubleConstantNoDataCellType
+    } else {
+      if (maxBytes == 8) {
+        if (containsUByte) ShortConstantNoDataCellType
+        else UByteConstantNoDataCellType
+      } else if (maxBytes == 16) {
+        if (containsUShort) IntConstantNoDataCellType
+        else UShortConstantNoDataCellType
+      } else if (maxBytes == 32) {
+        IntConstantNoDataCellType
+      } else {
+        BitCellType
+      }
+    }
+  }
 }
